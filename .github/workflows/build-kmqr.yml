@@ -23,9 +23,14 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.0"
+          flutter-version: "3.29.3"
           channel: "stable"
           cache: true
+
+      - name: Ensure Android SDK 36 is installed
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Scaffold Flutter project if not present
         run: |
@@ -42,15 +47,13 @@ jobs:
             sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA" \/>\n    <application/' "$MANIFEST"
           fi
 
-          APP_GRADLE="android/app/build.gradle"
-          if [ -f "$APP_GRADLE" ]; then
-            sed -i 's/compileSdk[[:space:]]*=[[:space:]]*flutter.compileSdkVersion/compileSdk = 36/' "$APP_GRADLE"
-            sed -i 's/compileSdkVersion[[:space:]]*flutter.compileSdkVersion/compileSdkVersion 36/' "$APP_GRADLE"
-            sed -i 's/targetSdk[[:space:]]*=[[:space:]]*flutter.targetSdkVersion/targetSdk = 36/' "$APP_GRADLE"
-            sed -i 's/targetSdkVersion[[:space:]]*flutter.targetSdkVersion/targetSdkVersion 36/' "$APP_GRADLE"
-            sed -i 's/minSdk[[:space:]]*=[[:space:]]*flutter.minSdkVersion/minSdk = 21/' "$APP_GRADLE"
-            sed -i 's/minSdkVersion[[:space:]]*flutter.minSdkVersion/minSdkVersion 21/' "$APP_GRADLE"
-          fi
+          for GRADLE_FILE in "android/app/build.gradle" "android/app/build.gradle.kts"; do
+            if [ -f "$GRADLE_FILE" ]; then
+              sed -i -E 's/(compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.compileSdkVersion\(\)|flutter\.compileSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
+              sed -i -E 's/(targetSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.targetSdkVersion\(\)|flutter\.targetSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
+              sed -i -E 's/(minSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.minSdkVersion\(\)|flutter\.minSdkVersion|[0-9]+)/\121/g' "$GRADLE_FILE"
+            fi
+          done
 
       - name: Write KmQR application code (lib/main.dart)
         run: |
