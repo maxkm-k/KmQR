@@ -27,7 +27,7 @@ jobs:
           channel: "stable"
           cache: true
 
-      - name: Install Android SDK 36 platform & build-tools
+      - name: Install Android SDK 36 & NDK 27
         run: |
           SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
           SDKMANAGER=""
@@ -48,7 +48,7 @@ jobs:
           fi
 
           yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
-          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0" "ndk;27.0.12077973"
 
       - name: Scaffold Flutter project if not present
         run: |
@@ -74,7 +74,21 @@ jobs:
             if [ -f "$GRADLE_FILE" ]; then
               sed -i -E 's/(compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.compileSdkVersion\(\)|flutter\.compileSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
               sed -i -E 's/(targetSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.targetSdkVersion\(\)|flutter\.targetSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
-              sed -i -E 's/(minSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.minSdkVersion\(\)|flutter\.minSdkVersion|[0-9]+)/\121/g' "$GRADLE_FILE"
+              sed -i -E 's/(minSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.minSdkVersion\(\)|flutter\.minSdkVersion|[0-9]+)/\123/g' "$GRADLE_FILE"
+
+              if [[ "$GRADLE_FILE" == *.kts ]]; then
+                if grep -q "ndkVersion" "$GRADLE_FILE"; then
+                  sed -i -E 's/ndkVersion[[:space:]]*=[[:space:]]*"[^"]*"/ndkVersion = "27.0.12077973"/' "$GRADLE_FILE"
+                else
+                  sed -i '/android[[:space:]]*{/a \    ndkVersion = "27.0.12077973"' "$GRADLE_FILE"
+                fi
+              else
+                if grep -q "ndkVersion" "$GRADLE_FILE"; then
+                  sed -i -E 's/ndkVersion[[:space:]]+["'\''][^"'\'']*["'\'']/ndkVersion "27.0.12077973"/' "$GRADLE_FILE"
+                else
+                  sed -i '/android[[:space:]]*{/a \    ndkVersion "27.0.12077973"' "$GRADLE_FILE"
+                fi
+              fi
             fi
           done
 
