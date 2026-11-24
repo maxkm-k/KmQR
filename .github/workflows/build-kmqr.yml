@@ -20,18 +20,35 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK 36
-        uses: android-actions/setup-android@v3
-        with:
-          api-level: 36
-          build-tools-version: "36.0.0"
-
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.29.3"
           channel: "stable"
           cache: true
+
+      - name: Install Android SDK 36 platform & build-tools
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          SDKMANAGER=""
+          for candidate in \
+            "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK_ROOT/cmdline-tools/16.0/bin/sdkmanager" \
+            "$SDK_ROOT/cmdline-tools/12.0/bin/sdkmanager" \
+            "$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1)"; do
+            if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+              SDKMANAGER="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "No existing sdkmanager found under $SDK_ROOT"
+            exit 1
+          fi
+
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" "platforms;android-36" "build-tools;36.0.0"
 
       - name: Scaffold Flutter project if not present
         run: |
@@ -42,6 +59,11 @@ jobs:
       - name: Configure dependencies, Android SDK & permissions
         run: |
           flutter pub add qr_flutter mobile_scanner shared_preferences share_plus path_provider
+
+          GRADLE_PROPS="android/gradle.properties"
+          if [ -f "$GRADLE_PROPS" ]; then
+            grep -q "android.useAndroidX=true" "$GRADLE_PROPS" || echo "android.useAndroidX=true" >> "$GRADLE_PROPS"
+          fi
 
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if ! grep -q "android.permission.CAMERA" "$MANIFEST"; then
