@@ -60,44 +60,79 @@ jobs:
         run: |
           flutter pub add qr_flutter 'mobile_scanner:^6.0.1' shared_preferences share_plus path_provider
 
-          GRADLE_PROPS="android/gradle.properties"
-          if [ -f "$GRADLE_PROPS" ]; then
-            grep -q "android.useAndroidX=true" "$GRADLE_PROPS" || echo "android.useAndroidX=true" >> "$GRADLE_PROPS"
-          fi
+          python3 - << 'PYEOF'
+          import pathlib, re
 
-          for ROOT_GRADLE in "android/settings.gradle" "android/settings.gradle.kts" "android/build.gradle" "android/build.gradle.kts"; do
-            if [ -f "$ROOT_GRADLE" ]; then
-              sed -i -E 's/(org\.jetbrains\.kotlin\.android["'\'']?[[:space:]]*(version)?[[:space:]]*(=)?[[:space:]]*["'\''])[0-9]+\.[0-9]+\.[0-9]+/\12.1.0/g' "$ROOT_GRADLE"
-              sed -i -E 's/(kotlin_version[[:space:]]*(=)?[[:space:]]*["'\''])[0-9]+\.[0-9]+\.[0-9]+/\12.1.0/g' "$ROOT_GRADLE"
-            fi
-          done
+          # 1. Enable AndroidX
+          gp = pathlib.Path("android/gradle.properties")
+          if gp.exists():
+              txt = gp.read_text()
+              if "android.useAndroidX=true" not in txt:
+                  gp.write_text(txt.rstrip() + "\nandroid.useAndroidX=true\n")
+
+          # 2. Update Kotlin Gradle plugin to 2.1.0
+          for p_str in [
+              "android/settings.gradle",
+              "android/settings.gradle.kts",
+              "android/build.gradle",
+              "android/build.gradle.kts",
+          ]:
+              p = pathlib.Path(p_str)
+              if not p.exists():
+                  continue
+              s = p.read_text()
+              s = re.sub(
+                  r'(org\.jetbrains\.kotlin\.android["\']?\s*(?:\)\s*)?version\s*["\'])[^"\']+(["\'])',
+                  r'\g<1>2.1.0\g<2>',
+                  s,
+              )
+              s = re.sub(
+                  r'(kotlin_version\s*=?\s*["\'])[^"\']+(["\'])',
+                  r'\g<1>2.1.0\g<2>',
+                  s,
+              )
+              p.write_text(s)
+              print(f"Updated {p_str}")
+
+          # 3. Update app build.gradle / build.gradle.kts SDK & NDK versions
+          for app_str in ["android/app/build.gradle", "android/app/build.gradle.kts"]:
+              app = pathlib.Path(app_str)
+              if not app.exists():
+                  continue
+              s = app.read_text()
+              is_kts = app_str.endswith(".kts")
+              eq = " = " if is_kts else " "
+
+              s = re.sub(
+                  r'compileSdk(?:Version)?\s*=?\s*(?:flutter\.compileSdkVersion\(\)|flutter\.compileSdkVersion|\d+)',
+                  f'compileSdk{eq}36',
+                  s,
+              )
+              s = re.sub(
+                  r'targetSdk(?:Version)?\s*=?\s*(?:flutter\.targetSdkVersion\(\)|flutter\.targetSdkVersion|\d+)',
+                  f'targetSdk{eq}36',
+                  s,
+              )
+              s = re.sub(
+                  r'minSdk(?:Version)?\s*=?\s*(?:flutter\.minSdkVersion\(\)|flutter\.minSdkVersion|\d+)',
+                  f'minSdk{eq}23',
+                  s,
+              )
+
+              ndk_line = 'ndkVersion = "27.0.12077973"' if is_kts else 'ndkVersion "27.0.12077973"'
+              if "ndkVersion" in s:
+                  s = re.sub(r'ndkVersion\s*=?\s*["\'][^"\']*["\']', ndk_line, s)
+              else:
+                  s = re.sub(r'(android\s*\{)', r'\1\n    ' + ndk_line, s, count=1)
+
+              app.write_text(s)
+              print(f"Updated {app_str}")
+          PYEOF
 
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if ! grep -q "android.permission.CAMERA" "$MANIFEST"; then
             sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA" \/>\n    <application/' "$MANIFEST"
           fi
-
-          for GRADLE_FILE in "android/app/build.gradle" "android/app/build.gradle.kts"; do
-            if [ -f "$GRADLE_FILE" ]; then
-              sed -i -E 's/(compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.compileSdkVersion\(\)|flutter\.compileSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
-              sed -i -E 's/(targetSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.targetSdkVersion\(\)|flutter\.targetSdkVersion|[0-9]+)/\136/g' "$GRADLE_FILE"
-              sed -i -E 's/(minSdk(Version)?[[:space:]]*(=)?[[:space:]]*)(flutter\.minSdkVersion\(\)|flutter\.minSdkVersion|[0-9]+)/\123/g' "$GRADLE_FILE"
-
-              if [[ "$GRADLE_FILE" == *.kts ]]; then
-                if grep -q "ndkVersion" "$GRADLE_FILE"; then
-                  sed -i -E 's/ndkVersion[[:space:]]*=[[:space:]]*"[^"]*"/ndkVersion = "27.0.12077973"/' "$GRADLE_FILE"
-                else
-                  sed -i '/android[[:space:]]*{/a \    ndkVersion = "27.0.12077973"' "$GRADLE_FILE"
-                fi
-              else
-                if grep -q "ndkVersion" "$GRADLE_FILE"; then
-                  sed -i -E 's/ndkVersion[[:space:]]+["'\''][^"'\'']*["'\'']/ndkVersion "27.0.12077973"/' "$GRADLE_FILE"
-                else
-                  sed -i '/android[[:space:]]*{/a \    ndkVersion "27.0.12077973"' "$GRADLE_FILE"
-                fi
-              fi
-            fi
-          done
 
       - name: Write KmQR application code (lib/main.dart)
         run: |
