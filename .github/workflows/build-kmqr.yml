@@ -213,9 +213,11 @@ jobs:
             Future<void> _shareQrImage() async {
               final file = await _renderQrToPngFile(permanent: false);
               if (file == null) return;
-              await Share.shareXFiles(
-                [XFile(file.path)],
-                text: _activeQrData ?? 'KmQR Code',
+              await SharePlus.instance.share(
+                ShareParams(
+                  files: [XFile(file.path)],
+                  text: _activeQrData ?? 'KmQR Code',
+                ),
               );
             }
 
@@ -458,6 +460,20 @@ jobs:
                 ),
               );
             }
+          }
+          EOF
+
+          mkdir -p test
+          cat << 'EOF' > test/widget_test.dart
+          import 'package:flutter_test/flutter_test.dart';
+          import 'package:kmqr/main.dart';
+
+          void main() {
+            testWidgets('KmQR renders Generate tab', (WidgetTester tester) async {
+              await tester.pumpWidget(const KmQRApp());
+              expect(find.text('KmQR'), findsOneWidget);
+              expect(find.text('Generate QR'), findsOneWidget);
+            });
           }
           EOF
 
