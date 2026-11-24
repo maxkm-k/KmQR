@@ -56,7 +56,7 @@ jobs:
             flutter create --org com.kmqr --project-name kmqr .
           fi
 
-      - name: Configure dependencies, Android SDK & permissions
+      - name: Configure dependencies, Kotlin 2.1.0, Android SDK & permissions
         run: |
           flutter pub add qr_flutter 'mobile_scanner:^6.0.1' shared_preferences share_plus path_provider
 
@@ -64,6 +64,13 @@ jobs:
           if [ -f "$GRADLE_PROPS" ]; then
             grep -q "android.useAndroidX=true" "$GRADLE_PROPS" || echo "android.useAndroidX=true" >> "$GRADLE_PROPS"
           fi
+
+          for ROOT_GRADLE in "android/settings.gradle" "android/settings.gradle.kts" "android/build.gradle" "android/build.gradle.kts"; do
+            if [ -f "$ROOT_GRADLE" ]; then
+              sed -i -E 's/(org\.jetbrains\.kotlin\.android["'\'']?[[:space:]]*(version)?[[:space:]]*(=)?[[:space:]]*["'\''])[0-9]+\.[0-9]+\.[0-9]+/\12.1.0/g' "$ROOT_GRADLE"
+              sed -i -E 's/(kotlin_version[[:space:]]*(=)?[[:space:]]*["'\''])[0-9]+\.[0-9]+\.[0-9]+/\12.1.0/g' "$ROOT_GRADLE"
+            fi
+          done
 
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if ! grep -q "android.permission.CAMERA" "$MANIFEST"; then
