@@ -20,17 +20,18 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Android SDK 36
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 36
+          build-tools-version: "36.0.0"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.29.3"
           channel: "stable"
           cache: true
-
-      - name: Ensure Android SDK 36 is installed
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-36" "build-tools;36.0.0"
 
       - name: Scaffold Flutter project if not present
         run: |
