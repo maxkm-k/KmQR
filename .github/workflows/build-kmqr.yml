@@ -58,7 +58,7 @@ jobs:
 
       - name: Configure dependencies, Android SDK & permissions
         run: |
-          flutter pub add qr_flutter mobile_scanner shared_preferences share_plus path_provider
+          flutter pub add qr_flutter 'mobile_scanner:^6.0.1' shared_preferences share_plus path_provider
 
           GRADLE_PROPS="android/gradle.properties"
           if [ -f "$GRADLE_PROPS" ]; then
