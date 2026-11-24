@@ -33,12 +33,23 @@ jobs:
             flutter create --org com.kmqr --project-name kmqr .
           fi
 
-      - name: Configure dependencies & Android permissions
+      - name: Configure dependencies, Android SDK & permissions
         run: |
           flutter pub add qr_flutter mobile_scanner shared_preferences share_plus path_provider
+
           MANIFEST="android/app/src/main/AndroidManifest.xml"
           if ! grep -q "android.permission.CAMERA" "$MANIFEST"; then
             sed -i 's/<application/<uses-permission android:name="android.permission.CAMERA" \/>\n    <application/' "$MANIFEST"
+          fi
+
+          APP_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_GRADLE" ]; then
+            sed -i 's/compileSdk[[:space:]]*=[[:space:]]*flutter.compileSdkVersion/compileSdk = 36/' "$APP_GRADLE"
+            sed -i 's/compileSdkVersion[[:space:]]*flutter.compileSdkVersion/compileSdkVersion 36/' "$APP_GRADLE"
+            sed -i 's/targetSdk[[:space:]]*=[[:space:]]*flutter.targetSdkVersion/targetSdk = 36/' "$APP_GRADLE"
+            sed -i 's/targetSdkVersion[[:space:]]*flutter.targetSdkVersion/targetSdkVersion 36/' "$APP_GRADLE"
+            sed -i 's/minSdk[[:space:]]*=[[:space:]]*flutter.minSdkVersion/minSdk = 21/' "$APP_GRADLE"
+            sed -i 's/minSdkVersion[[:space:]]*flutter.minSdkVersion/minSdkVersion 21/' "$APP_GRADLE"
           fi
 
       - name: Write KmQR application code (lib/main.dart)
